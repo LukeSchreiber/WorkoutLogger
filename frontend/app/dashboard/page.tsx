@@ -163,10 +163,18 @@ export default function Dashboard() {
                 lifts={availableLifts} // Pass real lifts
                 initialLiftId={selectedLiftId}
                 onSave={async (exposure) => {
-                    // Logic to save new workout will need to be implemented/converted
-                    // For now, we just log logic, but ideally we call api.workouts.create here
-                    console.log("Saving new workout (logic pending refactor)", exposure);
-                    loadData(); // Refresh
+                    try {
+                        await api.workouts.create(exposure);
+                        toast({ title: "Session Logged", description: "Good work today." });
+                        loadData(); // Refresh list
+                    } catch (error) {
+                        console.error(error);
+                        toast({
+                            variant: "destructive",
+                            title: "Failed to save",
+                            description: "Could not log session. Try again."
+                        });
+                    }
                 }}
             />
         </div>
