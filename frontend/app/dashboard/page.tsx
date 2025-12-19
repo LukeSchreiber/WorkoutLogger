@@ -1,66 +1,105 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Insight } from "@/types";
+import { useEffect, useState, useCallback } from "react";
+import { Insight, Lift, Exposure } from "@/types";
 import { getRecentSessions, SessionSummary } from "@/lib/training-logic";
 import { TrainingLogList } from "@/components/dashboard/TrainingLogList";
 import { QuickLogModal } from "@/components/dashboard/QuickLogModal";
-import { getDashboardData, mockLifts } from "@/lib/mock-db";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Dashboard() {
     const [sessions, setSessions] = useState<SessionSummary[]>([]);
     const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
     const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+    const [availableLifts, setAvailableLifts] = useState<Lift[]>([]); // Derived from history for now
 
     // Default to first lift for Quick Log
-    const [selectedLiftId, setSelectedLiftId] = useState<string>(mockLifts[0]?.id || "");
+    const [selectedLiftId, setSelectedLiftId] = useState<string>("");
+    const { toast } = useToast();
+
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const { workouts } = await api.workouts.list();
+
+            // Transform Backend Data (Sets[]) to Frontend Exposure (topSet/backoffSets)
+            const convertedExposures: Exposure[] = workouts.map((w: any) => {
+                const topSet = w.sets.find((s: any) => s.isTopSet) || w.sets[0] || { weight: 0, reps: 0, rpe: 0 };
+                const backoffSets = w.sets.filter((s: any) => s.id !== topSet.id);
+
+                return {
+                    id: w.id,
+                    liftId: w.liftId,
+                    date: w.date,
+                    topSet: {
+                        weight: topSet.weight,
+                        reps: topSet.reps,
+                        rpe: topSet.rpe || 0,
+                    },
+                    backoffSets: backoffSets.map((b: any) => ({
+                        reps: b.reps,
+                        weight: b.weight,
+                        rpe: b.rpe
+                    })),
+                    notes: w.notes
+                };
+            });
+
+            // Extract Lifts from workouts for UI helpers
+            const uniqueLiftsMap = new Map<string, Lift>();
+            workouts.forEach((w: any) => {
+                if (w.lift) {
+                    uniqueLiftsMap.set(w.lift.id, { id: w.lift.id, name: w.lift.name });
+                }
+            });
+            const lifts = Array.from(uniqueLiftsMap.values());
+            setAvailableLifts(lifts);
+            if (lifts.length > 0) setSelectedLiftId(lifts[0].id);
+
+            const recentSessions = getRecentSessions(convertedExposures, lifts);
+            setSessions(recentSessions);
+
+            // Fetch Insights (Placeholder logic for now or real API if implemented)
+            // For now, we disable the mock insight fetch to prevent errors until endpoints exist
+            setInsights([]);
+
+        } catch (error) {
+            console.error("Failed to load dashboard data", error);
+            toast({
+                variant: "destructive",
+                title: "Error loading data",
+                description: "Could not fetch your training log."
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
 
     useEffect(() => {
-        const loadData = async () => {
-            // 1. Load Local Data (Instant)
-            const { mockExposures } = require("@/lib/mock-db");
-            const recentSessions = getRecentSessions(mockExposures, mockLifts);
-            setSessions(recentSessions);
-            setLoading(false);
-
-            // 2. Fetch AI Insights (Async)
-            try {
-                // Prepare small payload for AI
-                const { getDashboardData } = require("@/lib/mock-db");
-                const { stats } = getDashboardData();
-                const recentHistory = mockExposures.slice(0, 5); // Send last 5 exposures
-
-                const response = await fetch('/api/insights', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stats, recentHistory }),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    const wrappedError: any = new Error(errorData.error || "Fetch failed");
-                    wrappedError.debug = errorData.debug; // Attach debug info
-                    throw wrappedError;
-                }
-
-                const data = await response.json();
-                if (data.insights) {
-                    setInsights(data.insights);
-                }
-            } catch (e) {
-                console.error("Failed to load insights, falling back to local data.");
-                // Fallback to local logic
-                const { getDashboardData } = require("@/lib/mock-db");
-                const { insights: localInsights } = getDashboardData();
-                setInsights(localInsights);
-            }
-        };
         loadData();
-    }, []);
+    }, [loadData]);
+
+    const handleDelete = async (id: string, date: string) => {
+        try {
+            await api.workouts.delete(id);
+            toast({
+                title: "Workout Deleted",
+                description: `Session from ${date} removed.`
+            });
+            loadData(); // Refresh list
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Failed to delete",
+                description: "Something went wrong."
+            });
+        }
+    };
 
     if (loading) return <div className="p-8 text-muted-foreground">Loading training log...</div>;
 
@@ -76,7 +115,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="overflow-auto flex-1 pb-10">
-                    <TrainingLogList sessions={sessions} />
+                    <TrainingLogList sessions={sessions} onDelete={handleDelete} />
                 </div>
             </div>
 
@@ -109,7 +148,7 @@ export default function Dashboard() {
                         </Card>
                     ))}
                     {insights.length === 0 && (
-                        <div className="text-sm text-muted-foreground italic">No insights available. Log more data.</div>
+                        <div className="text-sm text-muted-foreground italic">No new insights. Log more workouts!</div>
                     )}
                 </div>
             </div>
@@ -117,10 +156,13 @@ export default function Dashboard() {
             <QuickLogModal
                 isOpen={isLogModalOpen}
                 onClose={() => setIsLogModalOpen(false)}
-                lifts={mockLifts}
+                lifts={availableLifts} // Pass real lifts
                 initialLiftId={selectedLiftId}
-                onSave={(exposure) => {
-                    console.log("Saved", exposure);
+                onSave={async (exposure) => {
+                    // Logic to save new workout will need to be implemented/converted
+                    // For now, we just log logic, but ideally we call api.workouts.create here
+                    console.log("Saving new workout (logic pending refactor)", exposure);
+                    loadData(); // Refresh
                 }}
             />
         </div>

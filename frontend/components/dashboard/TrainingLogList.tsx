@@ -9,9 +9,10 @@ import Link from "next/link";
 
 interface TrainingLogListProps {
     sessions: SessionSummary[];
+    onDelete?: (id: string, date: string) => void;
 }
 
-export function TrainingLogList({ sessions }: TrainingLogListProps) {
+export function TrainingLogList({ sessions, onDelete }: TrainingLogListProps) {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
@@ -40,7 +41,7 @@ export function TrainingLogList({ sessions }: TrainingLogListProps) {
                                     </Tooltip>
                                 </TooltipProvider>
                             </th>
-                            <th className="p-3 font-medium text-right w-[80px]">View</th>
+                            <th className="p-3 font-medium text-right w-[100px]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
@@ -77,11 +78,27 @@ export function TrainingLogList({ sessions }: TrainingLogListProps) {
                                 </td>
 
                                 <td className="p-3 text-right">
-                                    <Link href={`/workouts/${session.id}`}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                                        </Button>
-                                    </Link>
+                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Link href={`/workouts/${session.id}`}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                            </Button>
+                                        </Link>
+                                        {onDelete && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive/50 hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => {
+                                                    if (confirm("Are you sure you want to delete this workout?")) {
+                                                        onDelete(session.id, session.date);
+                                                    }
+                                                }}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+                                            </Button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
