@@ -55,7 +55,7 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
-        me: () => apiFetch<{ user: any }>("/me"),
+        me: () => apiFetch<{ user: any }>("/auth/me"),
     },
     workouts: {
         list: () => apiFetch<{ workouts: DataType.Workout[] }>("/workouts"),
