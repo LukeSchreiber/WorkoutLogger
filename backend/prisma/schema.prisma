@@ -32,9 +32,11 @@ model Exposure {
   lift   Lift     @relation(fields: [liftId], references: [id])
   userId String
   user   User     @relation(fields: [userId], references: [id])
-  date   DateTime
-  notes  String?
-  sets   Set[]
+  date         DateTime
+  focus        String?
+  notes        String?
+  backoffNotes String?
+  sets         Set[]
 }
 
 model Set {

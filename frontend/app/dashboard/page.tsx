@@ -39,16 +39,14 @@ export default function Dashboard() {
                     id: w.id,
                     liftId: w.liftId,
                     date: w.date,
+                    focus: w.focus,
                     topSet: {
                         weight: topSet.weight,
                         reps: topSet.reps,
                         rpe: topSet.rpe || 0,
                     },
-                    backoffSets: backoffSets.map((b: any) => ({
-                        reps: b.reps,
-                        weight: b.weight,
-                        rpe: b.rpe
-                    })),
+                    backoffSets: [], // UI ignores this now
+                    backoffNotes: w.backoffNotes,
                     notes: w.notes
                 };
             });
@@ -111,7 +109,17 @@ export default function Dashboard() {
                 </div>
 
                 <div className="overflow-auto flex-1 pb-10">
-                    <TrainingLogList sessions={sessions} onDelete={handleDelete} />
+                    {sessions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 pt-20">
+                            <h3 className="text-2xl font-bold tracking-tight">Log your first session</h3>
+                            <p className="text-muted-foreground w-[200px]">Start with today’s main lift.</p>
+                            <Button size="lg" onClick={() => setIsLogModalOpen(true)} className="mt-4">
+                                Log Today’s Lift
+                            </Button>
+                        </div>
+                    ) : (
+                        <TrainingLogList sessions={sessions} onDelete={handleDelete} />
+                    )}
                 </div>
             </div>
 

@@ -26,7 +26,9 @@ export type Exposure = {
         reps: number;
         rpe: number;
     };
-    backoffSets: BackoffSet[];
+    backoffSets: BackoffSet[]; // Keeping for backward compatibility but UI might ignore
+    focus?: string;
+    backoffNotes?: string;
     notes?: string;
 };
 

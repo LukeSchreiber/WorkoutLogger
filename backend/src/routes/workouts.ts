@@ -29,6 +29,8 @@ const createWorkoutSchema = z.object({
     liftId: z.string(),
     date: z.string().datetime(),
     notes: z.string().optional(),
+    focus: z.string().optional(),
+    backoffNotes: z.string().optional(),
     sets: z.array(setSchema),
 });
 
@@ -66,7 +68,9 @@ router.post("/", async (req: Request, res: Response) => {
                 userId: userId!, // Force for now implies middleware exists
                 liftId: body.liftId,
                 date: body.date,
+                focus: body.focus,
                 notes: body.notes,
+                backoffNotes: body.backoffNotes,
                 sets: {
                     create: body.sets,
                 },

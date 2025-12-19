@@ -113,55 +113,38 @@ export function generateInsights(liftStats: LiftStats[]): Insight[] {
 export type SessionSummary = {
     id: string; // composite date key
     date: string; // YYYY-MM-DD
-    displayDate: string; // "Today", "Yesterday", etc.
-    title: string; // e.g. "Upper Body"
+    displayDate: string; // "Today", "Oct 12", etc.
+    focus?: string;
     liftNames: string[]; // ["Squat", "Bench"]
-    topSetDescriptions: string[]; // ["315x5 @8", "225x5 @9"]
+    topSetDescriptions: string[]; // ["Squat: 315x5 @8"]
     workingSetsCount: number; // Sets @ RPE >= 7.5
     rawDate: Date;
+    backoffNotes?: string;
+    notes?: string;
 };
 
 export function getRecentSessions(exposures: Exposure[], lifts: Lift[]): SessionSummary[] {
-    const sessions: Record<string, SessionSummary> = {};
+    // In the new flow, 1 Exposure = 1 Session essentially (unless user logs multiple times a day perfectly sync'd)
+    // We will still group by date just in case, but usually it's 1:1
 
-    exposures.forEach(exp => {
+    return exposures.map(exp => {
         const dateObj = new Date(exp.date);
-        const dateKey = dateObj.toISOString().split('T')[0];
+        const liftName = lifts.find(l => l.id === exp.liftId)?.name || "Unknown";
 
-        if (!sessions[dateKey]) {
-            sessions[dateKey] = {
-                id: `session-${dateKey}`,
-                date: dateKey,
-                displayDate: dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-                title: "Workout",
-                liftNames: [],
-                topSetDescriptions: [],
-                workingSetsCount: 0,
-                rawDate: dateObj
-            };
-        }
+        let desc = `${liftName}: ${exp.topSet.weight}x${exp.topSet.reps}`;
+        if (exp.topSet.rpe) desc += ` @${exp.topSet.rpe}`;
 
-        const session = sessions[dateKey];
-        const liftName = lifts.find(l => l.id === exp.liftId)?.name || "Unknown Lift";
-
-        session.liftNames.push(liftName);
-        session.topSetDescriptions.push(`${liftName} ${exp.topSet.weight}x${exp.topSet.reps} @${exp.topSet.rpe}`);
-
-        // Working sets (RPE >= 7.5)
-        if (exp.topSet.rpe >= 7.5) session.workingSetsCount++;
-        exp.backoffSets.forEach(b => {
-            if ((b.rpe ?? 0) >= 7.5) session.workingSetsCount++;
-        });
-    });
-
-    return Object.values(sessions).map(s => {
-        const isLower = s.liftNames.some(l => l.includes("Squat") || l.includes("Deadlift"));
-        const isUpper = s.liftNames.some(l => l.includes("Bench") || l.includes("Press"));
-
-        if (isLower && isUpper) s.title = "Full Body";
-        else if (isLower) s.title = "Lower Body";
-        else if (isUpper) s.title = "Upper Body";
-
-        return s;
+        return {
+            id: exp.id,
+            date: exp.date,
+            displayDate: dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+            focus: exp.focus || undefined,
+            liftNames: [liftName],
+            topSetDescriptions: [desc],
+            workingSetsCount: 0, // Deprecated in UI but keep for type
+            rawDate: dateObj,
+            backoffNotes: exp.backoffNotes,
+            notes: exp.notes
+        };
     }).sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
 }
