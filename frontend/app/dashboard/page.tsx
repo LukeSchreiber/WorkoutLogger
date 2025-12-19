@@ -162,26 +162,7 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <QuickLogModal
-                isOpen={isLogModalOpen}
-                onClose={() => setIsLogModalOpen(false)}
-                lifts={availableLifts} // Pass real lifts
-                initialLiftId={selectedLiftId}
-                onSave={async (exposure) => {
-                    try {
-                        await api.workouts.create(exposure);
-                        toast({ title: "Session Logged", description: "Good work today." });
-                        loadData(); // Refresh list
-                    } catch (error) {
-                        console.error(error);
-                        toast({
-                            variant: "destructive",
-                            title: "Failed to save",
-                            description: "Could not log session. Try again."
-                        });
-                    }
-                }}
-            />
+
         </div>
     );
 }
