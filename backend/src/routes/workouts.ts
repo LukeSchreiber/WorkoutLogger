@@ -77,7 +77,7 @@ router.post("/", async (req: Request, res: Response) => {
         res.json(workout);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ detail: (error as z.ZodError).errors });
+            return res.status(400).json({ detail: (error as any).errors });
         }
         console.error(error);
         res.status(500).json({ detail: "Internal server error" });
