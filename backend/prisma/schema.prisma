@@ -13,7 +13,7 @@ model User {
   password  String
   createdAt DateTime   @default(now())
   lifts     Lift[]
-  exposures Exposure[]
+  workouts  Workout[]
 }
 
 model Lift {
@@ -21,32 +21,45 @@ model Lift {
   name      String
   userId    String
   user      User       @relation(fields: [userId], references: [id])
-  exposures    Exposure[]
+  exercises WorkoutExercise[]
   usageCount   Int        @default(0)
   lastUsedAt   DateTime?
 
   @@unique([userId, name]) // Prevent duplicate lift names for same user
 }
 
-model Exposure {
-  id     String   @id @default(uuid())
-  liftId String
-  lift   Lift     @relation(fields: [liftId], references: [id])
-  userId String
-  user   User     @relation(fields: [userId], references: [id])
-  date         DateTime
-  focus        String?
-  notes        String?
-  backoffNotes String?
-  sets         Set[]
+// New Core Model
+model Workout {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime
+  focus     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  exercises WorkoutExercise[]
 }
 
-model Set {
-  id         String   @id @default(uuid())
-  exposureId String
-  exposure   Exposure @relation(fields: [exposureId], references: [id], onDelete: Cascade)
-  isTopSet   Boolean  @default(false)
-  weight     Float
-  reps       Int
-  rpe        Float?
+model WorkoutExercise {
+  id        String   @id @default(uuid())
+  workoutId String
+  workout   Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  liftId    String
+  lift      Lift     @relation(fields: [liftId], references: [id])
+  position  Int      @default(0)
+  notes     String?
+  
+  sets      WorkoutSet[]
+}
+
+model WorkoutSet {
+  id                String          @id @default(uuid())
+  workoutExerciseId String
+  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  position          Int             @default(0)
+  weight            Float
+  reps              Int
+  rpe               Float?
+  type              String          @default("work") // warmup, work, top, backoff
 }

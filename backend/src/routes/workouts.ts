@@ -5,46 +5,46 @@ import { Prisma } from "@prisma/client";
 
 const router = Router();
 
-// Middleware to mock auth for now (or get from header)
-// TODO: Proper auth middleware verifying JWT
+// Helper: Get user (mock or real)
 const getUserId = (req: Request) => {
-    // For development/testing without full auth client integration yet
-    // return "user-test"; 
-    // In real implementation, this comes from req.user set by auth middleware
-    // We'll trust the caller sends a header or just use a placeholder if not found for now
-    // But since we implemented auth, we should verify token.
-    // For this step, I'll extract it assuming a middleware placed it there.
     return (req as any).user?.userId;
 };
 
-// Validation
+// Validation Schemas
 const setSchema = z.object({
+    position: z.number().default(0),
     weight: z.number(),
     reps: z.number(),
     rpe: z.number().optional(),
-    isTopSet: z.boolean().default(false),
+    type: z.string().default("work"),
 });
 
-const createWorkoutSchema = z.object({
+const exerciseSchema = z.object({
     liftId: z.string(),
-    date: z.string().datetime(),
+    position: z.number().default(0),
     notes: z.string().optional(),
-    focus: z.string().optional(),
-    backoffNotes: z.string().optional(),
     sets: z.array(setSchema),
 });
 
-// GET / - List workouts
+const createWorkoutSchema = z.object({
+    date: z.string().datetime(),
+    focus: z.string().optional(),
+    notes: z.string().optional(),
+    exercises: z.array(exerciseSchema),
+});
+
+// GET / - List workouts (Summary View)
+// Returns just the high level info + list of exercise names for the feed
 router.get("/", async (req: Request, res: Response) => {
     try {
         const userId = getUserId(req);
-        // if (!userId) return res.status(401).json({ detail: "Unauthorized" });
-
-        const workouts = await db.exposure.findMany({
+        const workouts = await db.workout.findMany({
             where: { userId },
             include: {
-                lift: true,
-                sets: true,
+                exercises: {
+                    include: { lift: true },
+                    orderBy: { position: "asc" }
+                }
             },
             orderBy: { date: "desc" },
         });
@@ -55,36 +55,51 @@ router.get("/", async (req: Request, res: Response) => {
     }
 });
 
-// POST / - Create workout
+// POST / - Create Full Workout
 router.post("/", async (req: Request, res: Response) => {
     try {
         const userId = getUserId(req);
-        // if (!userId) return res.status(401).json({ detail: "Unauthorized" });
-
         const body = createWorkoutSchema.parse(req.body);
 
-        const workout = await db.exposure.create({
+        // Transactional Create
+        const workout = await db.workout.create({
             data: {
-                userId: userId!, // Force for now implies middleware exists
-                liftId: body.liftId,
+                userId: userId!,
                 date: body.date,
                 focus: body.focus,
                 notes: body.notes,
-                backoffNotes: body.backoffNotes,
-                sets: {
-                    create: body.sets,
-                },
+                exercises: {
+                    create: body.exercises.map(ex => ({
+                        liftId: ex.liftId,
+                        position: ex.position,
+                        notes: ex.notes,
+                        sets: {
+                            create: ex.sets.map(s => ({
+                                position: s.position,
+                                weight: s.weight,
+                                reps: s.reps,
+                                rpe: s.rpe,
+                                type: s.type
+                            }))
+                        }
+                    }))
+                }
             },
-        });
-
-        // Update Lift Usage Stats
-        await db.lift.update({
-            where: { id: body.liftId },
-            data: {
-                usageCount: { increment: 1 },
-                lastUsedAt: new Date(),
+            include: {
+                exercises: {
+                    include: { sets: true }
+                }
             }
         });
+
+        // Async: Update Usage Stats for all lifts used
+        // We catch errors here so we don't block response
+        Promise.all(body.exercises.map(ex =>
+            db.lift.update({
+                where: { id: ex.liftId },
+                data: { usageCount: { increment: 1 }, lastUsedAt: new Date() }
+            })
+        )).catch(err => console.error("Failed to update lift stats", err));
 
         res.json(workout);
     } catch (error) {
@@ -96,17 +111,50 @@ router.post("/", async (req: Request, res: Response) => {
     }
 });
 
-// GET /:id - Get workout
+// GET /last - Get User's Latest Workout (for Copy Feature)
+router.get("/last", async (req: Request, res: Response) => {
+    try {
+        const userId = getUserId(req);
+        const workout = await db.workout.findFirst({
+            where: { userId },
+            orderBy: { date: "desc" },
+            include: {
+                exercises: {
+                    include: {
+                        lift: true,
+                        // Include sets to pre-fill?
+                        // User asked to prefill OR leave blank. 
+                        // Let's include sets so frontend can decide (e.g. use reps, clear weight).
+                        sets: { orderBy: { position: "asc" } }
+                    },
+                    orderBy: { position: "asc" }
+                }
+            }
+        });
+
+        if (!workout) return res.status(404).json({ detail: "No previous workout found" });
+        res.json(workout);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ detail: "Internal server error" });
+    }
+});
+
+// GET /:id - Get workout detail
 router.get("/:id", async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const workout = await db.exposure.findUnique({
+        const workout = await db.workout.findUnique({
             where: { id },
-            include: { lift: true, sets: true },
+            include: {
+                exercises: {
+                    include: { lift: true, sets: { orderBy: { position: "asc" } } },
+                    orderBy: { position: "asc" }
+                }
+            },
         });
 
         if (!workout) return res.status(404).json({ detail: "Workout not found" });
-
         res.json(workout);
     } catch (error) {
         console.error(error);
@@ -118,7 +166,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.delete("/:id", async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        await db.exposure.delete({ where: { id } });
+        await db.workout.delete({ where: { id } });
         res.json({ ok: true });
     } catch (error) {
         console.error(error);

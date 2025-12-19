@@ -50,23 +50,47 @@ export type Insight = {
     severity: "info" | "warning" | "alert";
 };
 
-// --- VIEW MODELS (Used for API responses) ---
-export type WorkoutSet = { id?: string; exerciseName: string; weight: number; reps: number; rpe?: number; notes?: string; };
+// --- WORKOUT ENGINE TYPES ---
+export type WorkoutSet = {
+    id?: string;
+    position: number;
+    weight: number;
+    reps: number;
+    rpe?: number;
+    type: "warmup" | "work" | "top" | "backoff";
+};
 
-export type WorkoutFeedback = { question: string; answer: string; summary?: string; };
-
-export type Workout = { id: string; userId?: string; performedAt: string; sets?: WorkoutSet[]; tags?: string[]; createdAt?: string; updatedAt?: string; rawText?: string; feedback?: WorkoutFeedback[]; title?: string; };
-
-export type CreateWorkoutInput = {
+export type WorkoutExercise = {
+    id?: string;
     liftId: string;
-    date: string; // ISO datetime
+    liftName?: string; // Hydrated
+    position: number;
+    notes?: string;
+    sets: WorkoutSet[];
+};
+
+export type Workout = {
+    id: string;
+    date: string;
     focus?: string;
     notes?: string;
-    backoffNotes?: string;
-    sets: {
-        weight: number;
-        reps: number;
-        rpe?: number;
-        isTopSet: boolean;
+    exercises: WorkoutExercise[];
+};
+
+export type CreateWorkoutInput = {
+    date: string;
+    focus?: string;
+    notes?: string;
+    exercises: {
+        liftId: string;
+        position: number;
+        notes?: string;
+        sets: {
+            position: number;
+            weight: number;
+            reps: number;
+            rpe?: number;
+            type: string;
+        }[];
     }[];
 };

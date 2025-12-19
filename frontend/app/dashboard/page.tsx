@@ -4,18 +4,18 @@ import { useEffect, useState, useCallback } from "react";
 import { Insight, Lift, Exposure } from "@/types";
 import { getRecentSessions, SessionSummary } from "@/lib/training-logic";
 import { TrainingLogList } from "@/components/dashboard/TrainingLogList";
-import { QuickLogModal } from "@/components/dashboard/QuickLogModal";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
+import Link from "next/link"; // Added
 
 export default function Dashboard() {
     const [sessions, setSessions] = useState<SessionSummary[]>([]);
     const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+    // Removed LogModal state
     const [availableLifts, setAvailableLifts] = useState<Lift[]>([]); // Derived from history for now
 
     // Default to first lift for Quick Log
@@ -30,23 +30,24 @@ export default function Dashboard() {
             setAvailableLifts(lifts);
             if (lifts.length > 0 && !selectedLiftId) setSelectedLiftId(lifts[0].id);
 
-            // Transform Backend Data (Sets[]) to Frontend Exposure (topSet/backoffSets)
+            // Transform Backend Data (Workout -> Exposure Summary)
+            // We'll treat the FIRST exercise as the "Main Lift" for the summary card
             const convertedExposures: Exposure[] = workouts.map((w: any) => {
-                const topSet = w.sets.find((s: any) => s.isTopSet) || w.sets[0] || { weight: 0, reps: 0, rpe: 0 };
-                const backoffSets = w.sets.filter((s: any) => s.id !== topSet.id);
+                const mainExercise = w.exercises[0]; // Primary lift
+                const topSet = mainExercise?.sets.filter((s: any) => s.type === 'work' || s.type === 'top')[0] || mainExercise?.sets[0];
 
                 return {
                     id: w.id,
-                    liftId: w.liftId,
+                    liftId: mainExercise?.liftId || "unknown",
                     date: w.date,
                     focus: w.focus,
                     topSet: {
-                        weight: topSet.weight,
-                        reps: topSet.reps,
-                        rpe: topSet.rpe || 0,
+                        weight: topSet?.weight || 0,
+                        reps: topSet?.reps || 0,
+                        rpe: topSet?.rpe || 0,
                     },
-                    backoffSets: [], // UI ignores this now
-                    backoffNotes: w.backoffNotes,
+                    backoffSets: [],
+                    backoffNotes: w.exercises.length > 1 ? `+ ${w.exercises.length - 1} other exercises` : undefined, // Show count of other lifts
                     notes: w.notes
                 };
             });
@@ -103,9 +104,11 @@ export default function Dashboard() {
             <div className="md:col-span-7 flex flex-col gap-4 overflow-hidden">
                 <div className="flex justify-between items-center px-1">
                     <h1 className="text-3xl font-bold tracking-tight">Training Log</h1>
-                    <Button onClick={() => setIsLogModalOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" /> Quick Log
-                    </Button>
+                    <Link href="/log">
+                        <Button>
+                            <Plus className="w-4 h-4 mr-2" /> Log Session
+                        </Button>
+                    </Link>
                 </div>
 
                 <div className="overflow-auto flex-1 pb-10">
@@ -113,9 +116,11 @@ export default function Dashboard() {
                         <div className="flex flex-col items-center justify-center h-full text-center space-y-4 pt-20">
                             <h3 className="text-2xl font-bold tracking-tight">Log your first session</h3>
                             <p className="text-muted-foreground w-[200px]">Start with today’s main lift.</p>
-                            <Button size="lg" onClick={() => setIsLogModalOpen(true)} className="mt-4">
-                                Log Today’s Lift
-                            </Button>
+                            <Link href="/log">
+                                <Button size="lg" className="mt-4">
+                                    Log Today’s Lift
+                                </Button>
+                            </Link>
                         </div>
                     ) : (
                         <TrainingLogList sessions={sessions} onDelete={handleDelete} />

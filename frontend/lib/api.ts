@@ -64,6 +64,7 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+        getLast: () => apiFetch<DataType.Workout>("/workouts/last"),
         parse: (rawText: string) =>
             apiFetch<{ sets: DataType.WorkoutSet[] }>("/workouts/parse", {
                 method: "POST",
