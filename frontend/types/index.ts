@@ -56,3 +56,17 @@ export type WorkoutSet = { id?: string; exerciseName: string; weight: number; re
 export type WorkoutFeedback = { question: string; answer: string; summary?: string; };
 
 export type Workout = { id: string; userId?: string; performedAt: string; sets?: WorkoutSet[]; tags?: string[]; createdAt?: string; updatedAt?: string; rawText?: string; feedback?: WorkoutFeedback[]; title?: string; };
+
+export type CreateWorkoutInput = {
+    liftId: string;
+    date: string; // ISO datetime
+    focus?: string;
+    notes?: string;
+    backoffNotes?: string;
+    sets: {
+        weight: number;
+        reps: number;
+        rpe?: number;
+        isTopSet: boolean;
+    }[];
+};

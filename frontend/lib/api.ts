@@ -59,7 +59,7 @@ export const api = {
     },
     workouts: {
         list: () => apiFetch<{ workouts: DataType.Workout[] }>("/workouts"),
-        create: (data: any) =>
+        create: (data: DataType.CreateWorkoutInput) =>
             apiFetch<any>("/workouts", {
                 method: "POST",
                 body: JSON.stringify(data),

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Lift } from "@/types";
+import { Lift, CreateWorkoutInput } from "@/types";
 import { api } from "@/lib/api";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ interface QuickLogModalProps {
     onClose: () => void;
     lifts: Lift[];
     initialLiftId?: string;
-    onSave: (exposure: any) => void;
+    onSave: (exposure: CreateWorkoutInput) => void;
 }
 
 const FOCUS_OPTIONS = ["Push", "Pull", "Legs", "Upper", "Lower", "Full", "Arms", "Cardio"];
@@ -79,15 +79,30 @@ export function QuickLogModal({ isOpen, onClose, lifts, initialLiftId, onSave }:
     };
 
     const handleSave = () => {
+        // Construct standard ISO date (defaulting to noon to avoid timezone rolling? Or just user local time)
+        // Simple approach: Date string + T12:00:00Z (UTC noon) or just current time if today
+        const now = new Date();
+        const selectedDate = new Date(date);
+        // If selected date is today (same YMD), use current time. Else use noon.
+        const isToday = selectedDate.toDateString() === now.toDateString();
+        const finalDate = isToday ? now.toISOString() : new Date(`${date}T12:00:00`).toISOString();
+
         onSave({
             liftId,
-            date: new Date(date).toISOString(),
+            date: finalDate,
             focus,
-            topSet: { weight: Number(weight), reps: Number(reps), rpe: showRpe ? Number(rpe) : 0 },
             backoffNotes,
             notes,
-            sets: []
+            sets: [
+                {
+                    weight: Number(weight),
+                    reps: Number(reps),
+                    rpe: showRpe && rpe ? Number(rpe) : undefined,
+                    isTopSet: true
+                }
+            ]
         });
+
         // Reset essential fields
         setWeight("");
         setReps("");
