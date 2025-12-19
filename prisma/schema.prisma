@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  username  String     @unique
+  password  String
+  createdAt DateTime   @default(now())
+  lifts     Lift[]
+  exposures Exposure[]
+}
+
+model Lift {
+  id        String     @id @default(uuid())
+  name      String
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  exposures Exposure[]
+
+  @@unique([userId, name]) // Prevent duplicate lift names for same user
+}
+
+model Exposure {
+  id     String   @id @default(uuid())
+  liftId String
+  lift   Lift     @relation(fields: [liftId], references: [id])
+  userId String
+  user   User     @relation(fields: [userId], references: [id])
+  date   DateTime
+  notes  String?
+  sets   Set[]
+}
+
+model Set {
+  id         String   @id @default(uuid())
+  exposureId String
+  exposure   Exposure @relation(fields: [exposureId], references: [id], onDelete: Cascade)
+  isTopSet   Boolean  @default(false)
+  weight     Float
+  reps       Int
+  rpe        Float?
+}
