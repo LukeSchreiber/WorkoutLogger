@@ -89,4 +89,23 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 });
 
+// Me
+router.get("/me", async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    if (!user) {
+        return res.status(401).json({ detail: "Unauthorized" });
+    }
+
+    try {
+        const dbUser = await db.user.findUnique({ where: { id: user.userId } });
+        if (!dbUser) {
+            return res.status(401).json({ detail: "User not found" });
+        }
+        res.json({ user: { id: dbUser.id, username: dbUser.username } });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ detail: "Internal server error" });
+    }
+});
+
 export default router;
