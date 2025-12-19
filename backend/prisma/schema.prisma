@@ -53,6 +53,17 @@ model WorkoutExercise {
   sets      WorkoutSet[]
 }
 
+model ErrorLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  path      String
+  method    String
+  statusCode Int      @default(500)
+  message   String
+  stack     String?
+  createdAt DateTime @default(now())
+}
+
 model WorkoutSet {
   id                String          @id @default(uuid())
   workoutExerciseId String
