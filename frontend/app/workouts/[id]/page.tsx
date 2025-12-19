@@ -26,18 +26,14 @@ export default function WorkoutDetailPage() {
     const { toast } = useToast();
 
     const [loading, setLoading] = useState(true);
-    const [workout, setWorkout] = useState<Workout | null>(null);
-    const [sets, setSets] = useState<WorkoutSet[]>([]);
-    const [feedback, setFeedback] = useState<WorkoutFeedback | null>(null);
+    const [exposure, setExposure] = useState<any | null>(null);
 
     useEffect(() => {
         const fetchWorkout = async () => {
             try {
                 const res = await api.workouts.get(id);
-                // Expecting { workout, sets?, feedback? }
-                setWorkout(res.workout);
-                if (res.sets) setSets(res.sets);
-                if (res.feedback) setFeedback(res.feedback);
+                // res is the raw Prisma Exposure with includes
+                setExposure(res);
             } catch (err) {
                 toast({ title: "Failed to load workout", variant: "destructive" });
                 router.push("/dashboard");
@@ -51,35 +47,43 @@ export default function WorkoutDetailPage() {
     const handleDelete = async () => {
         try {
             await api.workouts.delete(id);
-            toast({ title: "Workout deleted" });
+            toast({ title: "Session Deleted" });
             router.push("/dashboard");
         } catch (err) {
             toast({ title: "Delete failed", variant: "destructive" });
         }
     };
 
-    if (loading) return <div className="py-12 text-center">Loading...</div>;
-    if (!workout) return null;
+    if (loading) return <div className="py-12 text-center text-muted-foreground">Loading session...</div>;
+    if (!exposure) return null;
+
+    // Derived State
+    const dateStr = new Date(exposure.date).toLocaleDateString(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const mainLiftName = exposure.lift?.name || "Unknown Lift";
+    const topSet = exposure.sets.find((s: any) => s.isTopSet) || exposure.sets[0];
 
     return (
-        <div className="space-y-6 max-w-3xl mx-auto">
+        <div className="space-y-6 max-w-2xl mx-auto p-4 md:p-0">
+            {/* Header / Nav */}
             <div className="flex items-center justify-between">
                 <Link href="/dashboard">
-                    <Button variant="ghost" size="sm" className="pl-0">
-                        <ChevronLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                    <Button variant="ghost" size="sm" className="pl-0 text-muted-foreground hover:text-foreground">
+                        <ChevronLeft className="mr-2 h-4 w-4" /> Back
                     </Button>
                 </Link>
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive/80 hover:bg-destructive/10">
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Are you sure?</DialogTitle>
+                            <DialogTitle>Delete this session?</DialogTitle>
                             <DialogDescription>
-                                This action cannot be undone. This will permanently delete this workout log.
+                                This cannot be undone.
                             </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
@@ -94,68 +98,60 @@ export default function WorkoutDetailPage() {
                 </Dialog>
             </div>
 
-            <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight">{workout.title || "Untitled Workout"}</h1>
-                <p className="text-muted-foreground">
-                    {new Date(workout.performedAt).toLocaleString(undefined, {
-                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric'
-                    })}
-                </p>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="whitespace-pre-wrap font-mono text-sm bg-muted/30 p-4 rounded-md">
-                        {workout.rawText}
+            {/* Main Content Card */}
+            <Card className="border-border/50 shadow-sm">
+                <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <CardTitle className="text-2xl">{mainLiftName}</CardTitle>
+                                {exposure.focus && (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-secondary px-2 py-0.5 rounded text-secondary-foreground">
+                                        {exposure.focus}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-muted-foreground font-mono text-sm">{dateStr}</p>
+                        </div>
                     </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Top Set Display */}
+                    <div className="p-4 bg-muted/20 rounded-lg border border-border/50">
+                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Top Set</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet?.weight || 0}</span>
+                            <span className="text-lg text-muted-foreground font-medium">lbs</span>
+                            <span className="mx-3 text-2xl text-muted-foreground/30">×</span>
+                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet?.reps || 0}</span>
+                            <span className="text-lg text-muted-foreground font-medium">reps</span>
+                        </div>
+                        {topSet?.rpe && (
+                            <div className="mt-2 text-sm font-mono text-blue-400">@ RPE {topSet.rpe}</div>
+                        )}
+                    </div>
+
+                    {/* Backoffs */}
+                    {exposure.backoffNotes && (
+                        <div>
+                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Backoff Work</div>
+                            <div className="text-base leading-relaxed break-words">{exposure.backoffNotes}</div>
+                        </div>
+                    )}
+
+                    {/* Notes */}
+                    {exposure.notes && (
+                        <div>
+                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Notes</div>
+                            <div className="text-sm italic text-muted-foreground break-words">"{exposure.notes}"</div>
+                        </div>
+                    )}
+
+                    {!exposure.backoffNotes && !exposure.notes && (
+                        <div className="text-sm text-muted-foreground/50 italic py-4">No additional notes.</div>
+                    )}
                 </CardContent>
             </Card>
-
-            {feedback && (
-                <Card className="border-primary/20 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="text-primary">AI Feedback</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="whitespace-pre-line">{feedback.summary}</p>
-                    </CardContent>
-                </Card>
-            )}
-
-            {sets.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Structured Sets</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="border-b">
-                                    <tr>
-                                        <th className="py-2 px-1">Exercise</th>
-                                        <th className="py-2 px-1">Kg/Lbs</th>
-                                        <th className="py-2 px-1">Reps</th>
-                                        <th className="py-2 px-1">RPE</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sets.map((set) => (
-                                        <tr key={set.id} className="border-b last:border-0 hover:bg-muted/50">
-                                            <td className="py-2 px-1 font-medium">{set.exerciseName}</td>
-                                            <td className="py-2 px-1 text-muted-foreground">{set.weight}</td>
-                                            <td className="py-2 px-1 text-muted-foreground">{set.reps}</td>
-                                            <td className="py-2 px-1 text-muted-foreground">{set.rpe}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
         </div>
     );
 }
