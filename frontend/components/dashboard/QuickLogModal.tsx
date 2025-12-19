@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Lift } from "@/types";
-import { Search } from "lucide-react";
+import { api } from "@/lib/api";
+import { Check, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface QuickLogModalProps {
     isOpen: boolean;
@@ -19,46 +21,88 @@ interface QuickLogModalProps {
 }
 
 const FOCUS_OPTIONS = ["Push", "Pull", "Legs", "Upper", "Lower", "Full", "Arms", "Cardio"];
-const QUICK_LIFTS = ["Squat", "Bench Press", "Deadlift", "Overhead Press"];
+const DEFAULT_QUICK_LIFTS = ["Squat", "Bench Press", "Deadlift", "Overhead Press", "Pull-Up", "Barbell Row"];
 
 export function QuickLogModal({ isOpen, onClose, lifts, initialLiftId, onSave }: QuickLogModalProps) {
-    const [liftId, setLiftId] = useState(initialLiftId || "");
+    // Session State
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [focus, setFocus] = useState("Push");
     const [weight, setWeight] = useState("");
     const [reps, setReps] = useState("");
     const [rpe, setRpe] = useState("");
     const [showRpe, setShowRpe] = useState(false);
     const [backoffNotes, setBackoffNotes] = useState("");
     const [notes, setNotes] = useState("");
-    const [focus, setFocus] = useState("Push"); // Default
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
-    const [isOtherLift, setIsOtherLift] = useState(false);
 
-    // Filter quick lifts vs "Other"
-    const quickLiftObjs = lifts.filter(l => QUICK_LIFTS.includes(l.name));
-    const otherLifts = lifts.filter(l => !QUICK_LIFTS.includes(l.name));
+    // Lift Logic
+    const [liftId, setLiftId] = useState(initialLiftId || "");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isLiftDropdownOpen, setIsLiftDropdownOpen] = useState(false);
+
+    // Derived: Quick Lifts (Top 6 most used or Defaults)
+    // Lifts are already sorted by usageCount desc from backend
+    const quickLifts = lifts.length > 0
+        ? lifts.slice(0, 6)
+        : DEFAULT_QUICK_LIFTS.map(name => ({ id: `default-${name}`, name } as Lift));
+
+    // Derived: Filtered Lifts for Search
+    const filteredLifts = lifts.filter(l =>
+        l.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const hasExactMatch = filteredLifts.some(l => l.name.toLowerCase() === searchTerm.toLowerCase());
+
+    const handleSelectLift = (lift: Lift) => {
+        setLiftId(lift.id);
+        setSearchTerm(lift.name);
+        setIsLiftDropdownOpen(false);
+    };
+
+    const handleCreateLift = async () => {
+        if (!searchTerm.trim()) return;
+
+        // Optimistic UI for speed? Or wait? 
+        // Let's create immediately.
+        try {
+            const newLift = await api.lifts.create(searchTerm.trim());
+            // In a real app we'd update the parent SWR/Context, but here we might be stale.
+            // Ideally we call a refresh or just use the ID. 
+            // For now, let's assume we proceed with the ID. 
+            // We can't easily push to 'lifts' prop without parent refresh.
+            // Hack: we'll treat it as selected.
+            setLiftId(newLift.id);
+            setIsLiftDropdownOpen(false);
+        } catch (e) {
+            console.error("Failed to create lift", e);
+            alert("Failed to create lift. Try again.");
+        }
+    };
 
     const handleSave = () => {
         onSave({
             liftId,
-            date: new Date(date).toISOString(), // Convert back to ISO for DB
+            date: new Date(date).toISOString(),
             focus,
             topSet: { weight: Number(weight), reps: Number(reps), rpe: showRpe ? Number(rpe) : 0 },
             backoffNotes,
             notes,
-            sets: [] // Backend handles creating the real Set objects from topSet
+            sets: []
         });
-        // Reset (except maybe focus/date if logging multiple?)
+        // Reset essential fields
         setWeight("");
         setReps("");
         setRpe("");
         setBackoffNotes("");
         setNotes("");
+        setSearchTerm("");
+        setLiftId("");
         onClose();
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] bg-background border-border p-0 gap-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[500px] bg-background border-border p-0 gap-0 overflow-visible">
+                {/* overflow-visible needed for absolute dropdown? maybe constrain it inside */}
                 <div className="p-6 pb-2">
                     <DialogHeader>
                         <DialogTitle className="text-xl">Log Session</DialogTitle>
@@ -90,54 +134,91 @@ export function QuickLogModal({ isOpen, onClose, lifts, initialLiftId, onSave }:
                                         {opt}
                                     </Badge>
                                 ))}
-                                {/* Simple dropdown or more badge for others could go here, staying minimal for now */}
                             </div>
                         </div>
                     </div>
 
-                    {/* 2. Main Lift Selection */}
-                    <div className="space-y-2">
+                    {/* 2. Main Lift (Type-Ahead) */}
+                    <div className="space-y-2 relative z-50">
                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">Main Lift</Label>
-                        {!isOtherLift ? (
-                            <div className="grid grid-cols-2 gap-2">
-                                {quickLiftObjs.map(l => (
-                                    <Button
-                                        key={l.id}
-                                        variant={liftId === l.id ? "default" : "outline"}
-                                        className="justify-start h-10 px-3"
-                                        onClick={() => setLiftId(l.id)}
-                                    >
-                                        {l.name}
-                                    </Button>
-                                ))}
-                                <Button variant={liftId === "other" ? "default" : "ghost"} className="justify-start text-muted-foreground" onClick={() => setIsOtherLift(true)}>
-                                    <Search className="w-4 h-4 mr-2" /> Other Lift...
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    value={liftId}
-                                    onChange={(e) => setLiftId(e.target.value)}
+
+                        {/* Quick Chips */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {quickLifts.map(l => (
+                                <Badge
+                                    key={l.id}
+                                    variant={liftId === l.id || (l.id.startsWith("default") && searchTerm === l.name) ? "secondary" : "outline"}
+                                    className="cursor-pointer hover:bg-muted/80 transition-colors"
+                                    onClick={() => {
+                                        if (l.id.startsWith("default")) {
+                                            // Pre-fill search for creation
+                                            setSearchTerm(l.name);
+                                            setLiftId(""); // Needs creation
+                                            setIsLiftDropdownOpen(true);
+                                        } else {
+                                            handleSelectLift(l);
+                                        }
+                                    }}
                                 >
-                                    <option value="" disabled>Select a lift...</option>
-                                    {otherLifts.map(l => (
-                                        <option key={l.id} value={l.id}>{l.name}</option>
-                                    ))}
-                                    {quickLiftObjs.map(l => (
-                                        <option key={l.id} value={l.id}>{l.name}</option>
-                                    ))}
-                                </select>
-                                <Button variant="ghost" size="sm" onClick={() => setIsOtherLift(false)} className="text-xs h-6 px-0 pl-1">
-                                    &larr; Back to Quick Lifts
-                                </Button>
-                            </div>
-                        )}
+                                    {l.name}
+                                </Badge>
+                            ))}
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative">
+                            <Input
+                                placeholder="Search or type to create..."
+                                value={searchTerm}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value);
+                                    setIsLiftDropdownOpen(true);
+                                    if (liftId && e.target.value !== lifts.find(l => l.id === liftId)?.name) {
+                                        setLiftId(""); // Clear selection on edit
+                                    }
+                                }}
+                                onFocus={() => setIsLiftDropdownOpen(true)}
+                                className={cn(liftId ? "border-primary/50 bg-primary/5" : "")}
+                            />
+                            {liftId && (
+                                <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                            )}
+
+                            {/* Dropdown */}
+                            {isLiftDropdownOpen && searchTerm && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-[200px] overflow-auto z-50">
+                                    {filteredLifts.length > 0 && (
+                                        <div className="p-1">
+                                            {filteredLifts.map(l => (
+                                                <div
+                                                    key={l.id}
+                                                    className="px-3 py-2 text-sm hover:bg-accent rounded-sm cursor-pointer flex justify-between items-center"
+                                                    onClick={() => handleSelectLift(l)}
+                                                >
+                                                    {l.name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {!hasExactMatch && searchTerm.trim() && (
+                                        <div
+                                            className="p-1 border-t border-border/50"
+                                            onClick={handleCreateLift}
+                                        >
+                                            <div className="px-3 py-2 text-sm hover:bg-accent rounded-sm cursor-pointer text-primary font-medium flex items-center gap-2">
+                                                <Plus className="w-4 h-4" />
+                                                Create "{searchTerm}"
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* 3. Top Set */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 relative z-10">
                         <div className="flex justify-between items-end">
                             <Label className="text-xs text-muted-foreground uppercase tracking-wider">Main Lift Performance</Label>
                             <div className="flex items-center gap-2">
@@ -154,7 +235,6 @@ export function QuickLogModal({ isOpen, onClose, lifts, initialLiftId, onSave }:
                                     onChange={e => setWeight(e.target.value)}
                                     placeholder="0"
                                     className="pl-3 pr-8 text-lg font-mono"
-                                    autoFocus
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">lbs</span>
                             </div>
@@ -184,8 +264,8 @@ export function QuickLogModal({ isOpen, onClose, lifts, initialLiftId, onSave }:
                         </div>
                     </div>
 
-                    {/* 4. Context (Backoffs & Notes) */}
-                    <div className="space-y-4 pt-2 border-t border-border/50">
+                    {/* 4. Context */}
+                    <div className="space-y-4 pt-2 border-t border-border/50 relative z-10">
                         <div className="space-y-1.5">
                             <Label className="text-xs text-muted-foreground uppercase tracking-wider">Context</Label>
                             <Input

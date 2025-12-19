@@ -75,7 +75,15 @@ router.post("/", async (req: Request, res: Response) => {
                     create: body.sets,
                 },
             },
-            include: { sets: true },
+        });
+
+        // Update Lift Usage Stats
+        await db.lift.update({
+            where: { id: body.liftId },
+            data: {
+                usageCount: { increment: 1 },
+                lastUsedAt: new Date(),
+            }
         });
 
         res.json(workout);

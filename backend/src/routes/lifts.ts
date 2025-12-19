@@ -12,7 +12,11 @@ router.get("/", async (req: Request, res: Response) => {
 
         const lifts = await db.lift.findMany({
             where: { userId },
-            orderBy: { name: "asc" }
+            orderBy: [
+                { usageCount: "desc" },
+                { lastUsedAt: "desc" },
+                { name: "asc" }
+            ]
         });
 
         res.json({ lifts });

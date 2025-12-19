@@ -21,7 +21,9 @@ model Lift {
   name      String
   userId    String
   user      User       @relation(fields: [userId], references: [id])
-  exposures Exposure[]
+  exposures    Exposure[]
+  usageCount   Int        @default(0)
+  lastUsedAt   DateTime?
 
   @@unique([userId, name]) // Prevent duplicate lift names for same user
 }

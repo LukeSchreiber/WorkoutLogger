@@ -80,5 +80,10 @@ export const api = {
     },
     lifts: {
         list: () => apiFetch<{ lifts: DataType.Lift[] }>("/lifts"),
+        create: (name: string) =>
+            apiFetch<DataType.Lift>("/lifts", {
+                method: "POST",
+                body: JSON.stringify({ name })
+            }),
     },
 };
