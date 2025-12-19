@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,7 +26,7 @@ function LiftSelector({ lifts, onSelect, onCreate }: { lifts: Lift[], onSelect: 
     return (
         <div className="space-y-2 p-2">
             <Input
-                ref={(input) => input && input.focus()} // Auto focus
+                autoFocus
                 placeholder="Search lift..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
