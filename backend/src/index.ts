@@ -31,8 +31,11 @@ app.use(cors());
 app.use(express.json());
 app.use(authenticate);
 
+import liftRoutes from "./routes/lifts";
+
 app.use("/auth", authRoutes);
 app.use("/workouts", workoutRoutes);
+app.use("/lifts", liftRoutes);
 
 app.get("/", (req, res) => {
     res.send("WorkoutLogger API is running!");

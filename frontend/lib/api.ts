@@ -78,4 +78,7 @@ export const api = {
     insights: {
         get: () => apiFetch<{ insights: DataType.Insight[] }>("/insights"),
     },
+    lifts: {
+        list: () => apiFetch<{ lifts: DataType.Lift[] }>("/lifts"),
+    },
 };

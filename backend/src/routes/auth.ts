@@ -33,6 +33,14 @@ router.post("/register", async (req: Request, res: Response) => {
             data: {
                 username,
                 password: hashedPassword,
+                lifts: {
+                    create: [
+                        { name: "Squat" },
+                        { name: "Bench Press" },
+                        { name: "Deadlift" },
+                        { name: "Overhead Press" },
+                    ]
+                }
             },
         });
 

@@ -26,6 +26,9 @@ export default function Dashboard() {
         try {
             setLoading(true);
             const { workouts } = await api.workouts.list();
+            const { lifts } = await api.lifts.list(); // Fetch real lifts
+            setAvailableLifts(lifts);
+            if (lifts.length > 0 && !selectedLiftId) setSelectedLiftId(lifts[0].id);
 
             // Transform Backend Data (Sets[]) to Frontend Exposure (topSet/backoffSets)
             const convertedExposures: Exposure[] = workouts.map((w: any) => {
@@ -50,16 +53,9 @@ export default function Dashboard() {
                 };
             });
 
-            // Extract Lifts from workouts for UI helpers
-            const uniqueLiftsMap = new Map<string, Lift>();
-            workouts.forEach((w: any) => {
-                if (w.lift) {
-                    uniqueLiftsMap.set(w.lift.id, { id: w.lift.id, name: w.lift.name });
-                }
-            });
-            const lifts = Array.from(uniqueLiftsMap.values());
-            setAvailableLifts(lifts);
-            if (lifts.length > 0) setSelectedLiftId(lifts[0].id);
+            // Sets are transformed, now we verify availableLifts is populated from API
+            // (already done above)
+
 
             const recentSessions = getRecentSessions(convertedExposures, lifts);
             setSessions(recentSessions);
