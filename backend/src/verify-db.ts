@@ -23,30 +23,43 @@ async function verify() {
             },
         });
 
-        // 3. Log a Workout (Exposure) with Sets
+        // 3. Log a Workout (Workout -> Exercise -> Sets)
         console.log("📝 Logging crucial data (Date, Sets, Reps, Weight)...");
-        const workout = await db.exposure.create({
+        const workout = await db.workout.create({
             data: {
                 userId: user.id,
-                liftId: lift.id,
                 date: new Date(),
                 notes: "Verification Run",
-                sets: {
+                exercises: {
                     create: [
-                        { weight: 225, reps: 5, rpe: 8, isTopSet: true },
-                        { weight: 205, reps: 8, rpe: 7, isTopSet: false },
-                    ],
-                },
+                        {
+                            liftId: lift.id,
+                            position: 0,
+                            sets: {
+                                create: [
+                                    { weight: 225, reps: 5, rpe: 8, type: "top" },
+                                    { weight: 205, reps: 8, rpe: 7, type: "backoff" }
+                                ]
+                            }
+                        }
+                    ]
+                }
             },
-            include: { sets: true },
+            include: {
+                exercises: {
+                    include: { sets: true }
+                }
+            },
         });
 
         // 4. Verify Data Integrity
         console.log("✅ Workout saved with ID:", workout.id);
         console.log("📊 Verifying sets...");
-        if (workout.sets.length !== 2) throw new Error("Missing sets!");
 
-        const topSet = workout.sets.find(s => s.isTopSet);
+        const mainExercise = workout.exercises[0];
+        if (!mainExercise || mainExercise.sets.length !== 2) throw new Error("Missing sets!");
+
+        const topSet = mainExercise.sets.find(s => s.type === "top");
         if (!topSet || topSet.weight !== 225 || topSet.reps !== 5) {
             throw new Error("❌ Crucial data mismatch! Top set data is wrong.");
         }
