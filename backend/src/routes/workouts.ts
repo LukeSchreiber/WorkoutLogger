@@ -34,7 +34,34 @@ const createWorkoutSchema = z.object({
     exercises: z.array(exerciseSchema),
 });
 
-// ... (GET /range omitted, assuming it's before or after this block, kept intact by focusing replacement on correct range)
+// GET / - List all workouts (for Dashboard)
+router.get("/", async (req: Request, res: Response) => {
+    try {
+        const userId = getUserId(req);
+        if (!userId) return res.status(401).json({ detail: "Unauthorized" });
+
+        const workouts = await db.workout.findMany({
+            where: { userId },
+            orderBy: { date: "desc" },
+            include: {
+                exercises: {
+                    include: {
+                        sets: { orderBy: { position: "asc" } }
+                    },
+                    orderBy: { position: "asc" }
+                }
+            }
+        });
+
+        res.json({ workouts });
+    } catch (error) {
+        console.error("List Workouts Failed:", error);
+        res.status(500).json({ detail: "Internal server error" });
+    }
+});
+
+// GET /range - Get workouts in date range
+
 
 // POST / - Create Full Workout
 // Transactional for robustness
