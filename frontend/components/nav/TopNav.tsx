@@ -4,12 +4,9 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
-import { Settings } from "lucide-react";
+import { Settings, Dumbbell } from "lucide-react";
 
-
-// I will use a simple layout for now to avoid needing DropdownMenu code which is complex to copy-paste blindly without checking deps.
-// Spec says "Show current user email and logout button" in Settings.
-// TopNav can just have "Dashboard", "Settings".
+// ...
 
 export function TopNav() {
     const { user } = useAuth();
@@ -19,8 +16,11 @@ export function TopNav() {
 
             <div className="container flex h-14 items-center justify-between">
                 <div className="flex items-center gap-6">
-                    <Link href="/" className="font-bold text-lg">
-                        WuL
+                    <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
+                        <div className="bg-primary text-primary-foreground p-1 rounded-md">
+                            <Dumbbell className="h-4 w-4" />
+                        </div>
+                        WorkoutLogger
                     </Link>
                     {user && (
                         <div className="flex gap-4 text-sm font-medium">

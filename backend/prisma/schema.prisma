@@ -36,9 +36,12 @@ model Workout {
   date      DateTime
   focus     String?
   notes     String?
+  tags      String[] @default([])
   createdAt DateTime @default(now())
 
   exercises WorkoutExercise[]
+
+  @@index([date])
 }
 
 model WorkoutExercise {

@@ -31,7 +31,8 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
         if (typeof window !== "undefined") {
             window.location.href = "/login";
         }
-        throw new Error("Unauthorized");
+        // Return a promise that never resolves to halt execution while page reloads
+        return new Promise(() => { });
     }
 
     if (!response.ok) {
@@ -59,6 +60,7 @@ export const api = {
     },
     workouts: {
         list: () => apiFetch<{ workouts: DataType.Workout[] }>("/workouts"),
+        getRange: (start: string, end: string) => apiFetch<{ workouts: any[] }>(`/workouts/range?start=${start}&end=${end}`),
         create: (data: DataType.CreateWorkoutInput) =>
             apiFetch<any>("/workouts", {
                 method: "POST",
@@ -78,6 +80,30 @@ export const api = {
     },
     insights: {
         get: () => apiFetch<{ insights: DataType.Insight[] }>("/insights"),
+    },
+    export: {
+        getTrainingLog: async () => {
+            const res = await fetch(`${BASE_URL}/export/training-log`, { headers: { Authorization: `Bearer ${getToken()}` } });
+            if (!res.ok) throw new Error("Export failed");
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            const contentDisposition = res.headers.get('Content-Disposition');
+            let filename = `training-log-${new Date().toISOString().split('T')[0]}.json`;
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (match && match[1]) filename = match[1];
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
     },
     lifts: {
         list: () => apiFetch<{ lifts: DataType.Lift[] }>("/lifts"),

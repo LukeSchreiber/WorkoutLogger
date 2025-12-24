@@ -121,6 +121,7 @@ export type SessionSummary = {
     rawDate: Date;
     backoffNotes?: string;
     notes?: string;
+    tags?: string[];
 };
 
 export function getRecentSessions(exposures: Exposure[], lifts: Lift[]): SessionSummary[] {
@@ -144,7 +145,8 @@ export function getRecentSessions(exposures: Exposure[], lifts: Lift[]): Session
             workingSetsCount: 0, // Deprecated in UI but keep for type
             rawDate: dateObj,
             backoffNotes: exp.backoffNotes,
-            notes: exp.notes
+            notes: exp.notes,
+            tags: exp.tags
         };
     }).sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
 }

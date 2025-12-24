@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import { db } from "./lib/db";
 
 async function verify() {
@@ -68,7 +71,10 @@ async function verify() {
         console.log("💾 Database is reliably collecting ALL crucial data.");
 
         // Cleanup
-        await db.user.delete({ where: { id: user.id } }); // Cascades delete to workout
+        // Cleanup
+        await db.workout.delete({ where: { id: workout.id } });
+        await db.lift.delete({ where: { id: lift.id } });
+        await db.user.delete({ where: { id: user.id } });
 
     } catch (e) {
         console.error("❌ Verification Failed:", e);

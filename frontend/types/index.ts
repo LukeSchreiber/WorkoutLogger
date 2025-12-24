@@ -30,6 +30,7 @@ export type Exposure = {
     focus?: string;
     backoffNotes?: string;
     notes?: string;
+    tags?: string[];
 };
 
 // Computed View Models (UI state)

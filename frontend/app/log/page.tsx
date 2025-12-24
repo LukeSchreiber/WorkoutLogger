@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Copy, Save, ChevronLeft, Dumbbell, GripVertical } from "lucide-react";
+import { Plus, Trash2, Copy, Save, ChevronLeft, Dumbbell, GripVertical, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Lift, WorkoutExercise, CreateWorkoutInput } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
@@ -52,12 +52,28 @@ function LiftSelector({ lifts, onSelect, onCreate }: { lifts: Lift[], onSelect: 
 
 export default function LogWorkoutPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const copyId = searchParams.get('copy');
+    const prefillDate = searchParams.get('date');
     const { toast } = useToast();
 
     // Global State
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(prefillDate || new Date().toISOString().split('T')[0]);
     const [focus, setFocus] = useState("Push");
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState("");
     const [notes, setNotes] = useState("");
+
+    const handleAddTag = () => {
+        if (!tagInput.trim()) return;
+        if (tags.includes(tagInput.trim())) return;
+        setTags([...tags, tagInput.trim()]);
+        setTagInput("");
+    };
+
+    const handleRemoveTag = (tag: string) => {
+        setTags(tags.filter(t => t !== tag));
+    };
 
     // Exercises Draft State
     // We map UI ID (random) to actual data so we can reorder easily if needed
@@ -138,7 +154,7 @@ export default function LogWorkoutPage() {
             const last = await api.workouts.getLast();
             // Transform to draft
             // We strip IDs to treat them as new
-            // We set date to today
+            // If we have a prefill date, we keep it, otherwise default to today (already set in state)
             setFocus(last.focus || "Push");
             const newExs: DraftEx[] = last.exercises.map((ex: any) => ({
                 uiId: Math.random().toString(36),
@@ -167,8 +183,9 @@ export default function LogWorkoutPage() {
         }
 
         const payload: CreateWorkoutInput = {
-            date: new Date().toISOString(), // Use current time for simplicity or construct from date picker + time
+            date: new Date().toISOString(),
             focus,
+            tags,
             notes,
             exercises: exercises.map((ex, i) => ({
                 liftId: ex.liftId,
@@ -225,14 +242,58 @@ export default function LogWorkoutPage() {
                             <div className="space-y-1.5 flex-1">
                                 <Label className="text-xs text-muted-foreground uppercase tracking-wider">Focus</Label>
                                 <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
-                                    {["Push", "Pull", "Legs", "Upper", "Lower"].map(f => (
-                                        <Badge
-                                            key={f}
-                                            variant={focus === f ? "default" : "outline"}
-                                            className="cursor-pointer whitespace-nowrap"
-                                            onClick={() => setFocus(f)}
-                                        >
-                                            {f}
+                                    {["Push", "Pull", "Legs", "Upper", "Lower", "Custom"].map(f => {
+                                        const standard = ["Push", "Pull", "Legs", "Upper", "Lower"];
+                                        const isCustom = !standard.includes(focus);
+                                        const isActive = f === "Custom" ? isCustom : focus === f;
+
+                                        return (
+                                            <Badge
+                                                key={f}
+                                                variant={isActive ? "default" : "outline"}
+                                                className="cursor-pointer whitespace-nowrap"
+                                                onClick={() => {
+                                                    if (f === "Custom") {
+                                                        if (!isCustom) setFocus(""); // Clear only if switching TO custom
+                                                    } else {
+                                                        setFocus(f);
+                                                    }
+                                                }}
+                                            >
+                                                {f}
+                                            </Badge>
+                                        );
+                                    })}
+                                </div>
+                                {(!["Push", "Pull", "Legs", "Upper", "Lower"].includes(focus)) && (
+                                    <Input
+                                        placeholder="Enter custom focus..."
+                                        value={focus}
+                                        onChange={e => setFocus(e.target.value)}
+                                        className="h-8 text-xs mt-2 animate-in fade-in zoom-in-95 duration-200"
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+                            <div className="space-y-1.5 flex-1">
+                                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Labels</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={tagInput}
+                                        onChange={e => setTagInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                                        placeholder="Add tag..."
+                                        className="h-9 text-sm bg-muted/50"
+                                    />
+                                    <Button size="sm" variant="ghost" onClick={handleAddTag} disabled={!tagInput} className="px-2">
+                                        <Plus className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                    {tags.map(tag => (
+                                        <Badge key={tag} variant="secondary" className="px-2 py-0.5 text-xs font-normal gap-1">
+                                            {tag}
+                                            <X className="w-3 h-3 cursor-pointer opacity-50 hover:opacity-100" onClick={() => handleRemoveTag(tag)} />
                                         </Badge>
                                     ))}
                                 </div>

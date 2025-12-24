@@ -17,24 +17,35 @@ export function TrainingLogList({ sessions, onDelete }: TrainingLogListProps) {
     return (
         <div className="flex flex-col gap-3">
             {sessions.map((session) => (
-                <div key={session.id} className="group relative flex flex-col gap-2 p-4 rounded-lg bg-card border border-border/50 hover:bg-muted/20 hover:border-border transition-all">
+                <div key={session.id} className="group relative flex flex-col gap-3 p-5 rounded-xl border border-border/40 bg-card hover:bg-muted/40 hover:border-border/80 transition-all shadow-sm">
                     <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                            <span className="font-mono text-sm text-foreground/80">{session.displayDate}</span>
-                            {session.focus && (
-                                <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold bg-muted text-muted-foreground px-1.5 py-0 h-5">
-                                    {session.focus}
-                                </Badge>
-                            )}
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{session.displayDate}</span>
+                                {session.focus && (
+                                    <Badge variant="outline" className="text-[10px] py-0 h-4 border-primary/20 bg-primary/5 text-primary">
+                                        {session.focus}
+                                    </Badge>
+                                )}
+                                {session.tags && session.tags.map(tag => (
+                                    <Badge key={tag} variant="secondary" className="text-[10px] py-0 h-4 bg-muted text-muted-foreground hover:bg-muted font-normal">
+                                        {tag}
+                                    </Badge>
+                                ))}
+                            </div>
+                            <div className="text-lg font-semibold text-foreground tracking-tight">
+                                {/* Assuming single top set description is primary */}
+                                {session.topSetDescriptions[0] || "No Data"}
+                            </div>
                         </div>
 
-                        {/* Actions (pushed to right) */}
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {onDelete && (
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                    className="h-8 w-8 text-muted-foreground/50 hover:text-destructive"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         if (confirm("Delete this session?")) onDelete(session.id, session.date);
@@ -44,30 +55,28 @@ export function TrainingLogList({ sessions, onDelete }: TrainingLogListProps) {
                                 </Button>
                             )}
                             <Link href={`/workouts/${session.id}`}>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                                    <ChevronRight className="w-4 h-4" />
+                                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground">
+                                    View <ChevronRight className="w-4 h-4 ml-1" />
                                 </Button>
                             </Link>
                         </div>
                     </div>
 
-                    {/* Main Content */}
-                    <div>
-                        <div className="text-base font-medium text-foreground">
-                            {/* Assuming single top set description is primary */}
-                            {session.topSetDescriptions[0] || "No Data"}
+                    {/* Footer Infos */}
+                    {(session.backoffNotes || session.notes) && (
+                        <div className="flex flex-col gap-1 pt-2 border-t border-border/30">
+                            {session.backoffNotes && (
+                                <div className="text-xs text-muted-foreground font-mono">
+                                    {session.backoffNotes}
+                                </div>
+                            )}
+                            {session.notes && (
+                                <div className="text-xs text-muted-foreground/60 italic">
+                                    &quot;{session.notes}&quot;
+                                </div>
+                            )}
                         </div>
-                        {session.backoffNotes && (
-                            <div className="text-sm text-muted-foreground mt-1 font-mono">
-                                {session.backoffNotes}
-                            </div>
-                        )}
-                        {session.notes && (
-                            <div className="text-xs text-muted-foreground/50 mt-2 line-clamp-1 italic">
-                                &quot;{session.notes}&quot;
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
             ))}
         </div>

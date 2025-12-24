@@ -32,10 +32,16 @@ app.use(express.json());
 app.use(authenticate);
 
 import liftRoutes from "./routes/lifts";
+import healthRoutes from "./routes/health";
+import exportRoutes from "./routes/export";
 
+// Note: Keeping root paths for existing endpoints as per current setup, 
+// using /api/health for clarity on the new endpoint
 app.use("/auth", authRoutes);
 app.use("/workouts", workoutRoutes);
 app.use("/lifts", liftRoutes);
+app.use("/api/health", healthRoutes);
+app.use("/api/export", exportRoutes);
 
 import { db } from "./lib/db";
 
