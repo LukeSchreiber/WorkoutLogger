@@ -62,9 +62,9 @@ export type WorkoutSet = {
 };
 
 export type WorkoutExercise = {
-    id?: string;
+    id: string; // id is returned by backend
     liftId: string;
-    liftName?: string; // Hydrated
+    lift: Lift; // Backend now returns full lift object
     position: number;
     notes?: string;
     sets: WorkoutSet[];
@@ -75,6 +75,7 @@ export type Workout = {
     date: string;
     focus?: string;
     notes?: string;
+    tags?: string[];
     exercises: WorkoutExercise[];
 };
 
@@ -82,6 +83,7 @@ export type CreateWorkoutInput = {
     date: string;
     focus?: string;
     notes?: string;
+    tags?: string[];
     exercises: {
         liftId: string;
         position: number;

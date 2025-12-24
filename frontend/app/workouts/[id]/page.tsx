@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
-import { Workout, WorkoutSet, WorkoutFeedback } from "@/types";
+import { Workout, WorkoutSet } from "@/types";
 
 export default function WorkoutDetailPage() {
     const { id } = useParams() as { id: string };
@@ -26,14 +26,13 @@ export default function WorkoutDetailPage() {
     const { toast } = useToast();
 
     const [loading, setLoading] = useState(true);
-    const [exposure, setExposure] = useState<any | null>(null);
+    const [workout, setWorkout] = useState<Workout | null>(null);
 
     useEffect(() => {
         const fetchWorkout = async () => {
             try {
                 const res = await api.workouts.get(id);
-                // res is the raw Prisma Exposure with includes
-                setExposure(res);
+                setWorkout(res);
             } catch (err) {
                 toast({ title: "Failed to load workout", variant: "destructive" });
                 router.push("/dashboard");
@@ -55,14 +54,11 @@ export default function WorkoutDetailPage() {
     };
 
     if (loading) return <div className="py-12 text-center text-muted-foreground">Loading session...</div>;
-    if (!exposure) return null;
+    if (!workout) return null;
 
-    // Derived State
-    const dateStr = new Date(exposure.date).toLocaleDateString(undefined, {
+    const dateStr = new Date(workout.date).toLocaleDateString(undefined, {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
-    const mainLiftName = exposure.lift?.name || "Unknown Lift";
-    const topSet = exposure.sets.find((s: any) => s.isTopSet) || exposure.sets[0];
 
     return (
         <div className="space-y-6 max-w-2xl mx-auto p-4 md:p-0">
@@ -103,52 +99,67 @@ export default function WorkoutDetailPage() {
                 <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <CardTitle className="text-2xl">{mainLiftName}</CardTitle>
-                                {exposure.focus && (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-secondary px-2 py-0.5 rounded text-secondary-foreground">
-                                        {exposure.focus}
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <CardTitle className="text-2xl">
+                                    {workout.focus || "Workout"}
+                                </CardTitle>
+                                {workout.tags && workout.tags.map(tag => (
+                                    <span key={tag} className="text-[10px] font-bold uppercase tracking-wider bg-secondary px-2 py-0.5 rounded text-secondary-foreground">
+                                        {tag}
                                     </span>
-                                )}
+                                ))}
                             </div>
                             <p className="text-muted-foreground font-mono text-sm">{dateStr}</p>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    {/* Top Set Display */}
-                    <div className="p-4 bg-muted/20 rounded-lg border border-border/50">
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Top Set</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet?.weight || 0}</span>
-                            <span className="text-lg text-muted-foreground font-medium">lbs</span>
-                            <span className="mx-3 text-2xl text-muted-foreground/30">×</span>
-                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet?.reps || 0}</span>
-                            <span className="text-lg text-muted-foreground font-medium">reps</span>
-                        </div>
-                        {topSet?.rpe && (
-                            <div className="mt-2 text-sm font-mono text-blue-400">@ RPE {topSet.rpe}</div>
-                        )}
-                    </div>
+                <CardContent className="space-y-8">
+                    {/* Exercises List */}
+                    {workout.exercises.map((exercise, idx) => {
+                        const topSet = exercise.sets.find(s => s.type === 'top') || exercise.sets[0];
+                        return (
+                            <div key={exercise.id} className={idx !== 0 ? "pt-6 border-t border-border/40" : ""}>
+                                <h3 className="text-lg font-semibold mb-3">{exercise.lift.name}</h3>
 
-                    {/* Backoffs */}
-                    {exposure.backoffNotes && (
-                        <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Backoff Work</div>
-                            <div className="text-base leading-relaxed break-words">{exposure.backoffNotes}</div>
-                        </div>
-                    )}
+                                {/* Top Set Display */}
+                                {topSet && (
+                                    <div className="p-4 bg-muted/20 rounded-lg border border-border/50 mb-3">
+                                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Top Set</div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet.weight}</span>
+                                            <span className="text-lg text-muted-foreground font-medium">lbs</span>
+                                            <span className="mx-3 text-2xl text-muted-foreground/30">×</span>
+                                            <span className="text-4xl font-bold tabular-nums tracking-tighter">{topSet.reps}</span>
+                                            <span className="text-lg text-muted-foreground font-medium">reps</span>
+                                        </div>
+                                        {topSet.rpe && (
+                                            <div className="mt-2 text-sm font-mono text-blue-400">@ RPE {topSet.rpe}</div>
+                                        )}
+                                    </div>
+                                )}
 
-                    {/* Notes */}
-                    {exposure.notes && (
-                        <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Notes</div>
-                            <div className="text-sm italic text-muted-foreground break-words">"{exposure.notes}"</div>
-                        </div>
-                    )}
+                                {/* Other Sets / Volume */}
+                                <div className="text-sm text-muted-foreground">
+                                    {exercise.sets.length > 1 ? (
+                                        <p>Total Sets: {exercise.sets.length}</p>
+                                    ) : null}
+                                </div>
 
-                    {!exposure.backoffNotes && !exposure.notes && (
-                        <div className="text-sm text-muted-foreground/50 italic py-4">No additional notes.</div>
+                                {exercise.notes && (
+                                    <div className="mt-2 text-sm italic text-muted-foreground">
+                                        "{exercise.notes}"
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Workout Notes */}
+                    {workout.notes && (
+                        <div className="pt-6 border-t border-border/40">
+                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Session Notes</div>
+                            <div className="text-sm italic text-muted-foreground break-words">"{workout.notes}"</div>
+                        </div>
                     )}
                 </CardContent>
             </Card>

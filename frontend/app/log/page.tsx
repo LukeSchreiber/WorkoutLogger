@@ -77,7 +77,20 @@ export default function LogWorkoutPage() {
 
     // Exercises Draft State
     // We map UI ID (random) to actual data so we can reorder easily if needed
-    type DraftEx = WorkoutExercise & { uiId: string };
+    type DraftEx = {
+        uiId: string;
+        liftId: string;
+        liftName: string;
+        position: number;
+        notes?: string;
+        sets: {
+            position: number;
+            weight: number;
+            reps: number;
+            rpe?: number; // make optional
+            type: "work" | "warmup" | "top" | "backoff";
+        }[];
+    };
     const [exercises, setExercises] = useState<DraftEx[]>([]);
 
     // Metadata
@@ -183,7 +196,7 @@ export default function LogWorkoutPage() {
         }
 
         const payload: CreateWorkoutInput = {
-            date: new Date().toISOString(),
+            date: new Date(date).toISOString(),
             focus,
             tags,
             notes,
